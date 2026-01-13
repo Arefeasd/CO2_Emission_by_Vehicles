@@ -1,1 +1,214 @@
-<h1>Welcome to the home page</h1>
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>CO2 Emission Predictor</title>
+    <style>
+      body {
+        font-family: "Segoe UI", sans-serif;
+        background: #f0f2f5;
+        display: flex;
+        justify-content: center;
+        padding: 20px;
+      }
+      .card {
+        background: white;
+        padding: 25px;
+        border-radius: 10px;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        width: 100%;
+        max-width: 480px;
+      }
+      label {
+        display: block;
+        margin-top: 10px;
+        font-weight: bold;
+      }
+      select,
+      input {
+        width: 100%;
+        padding: 10px;
+        margin-top: 5px;
+        border-radius: 5px;
+        border: 1px solid #ddd;
+        box-sizing: border-box;
+      }
+      button {
+        width: 100%;
+        padding: 12px;
+        background: #28a745;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        margin-top: 20px;
+        font-size: 16px;
+      }
+      button:hover {
+        background: #218838;
+      }
+      .result {
+        margin-top: 20px;
+        text-align: center;
+        color: #28a745;
+        font-size: 1.2em;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h2>CO2 Emission Estimator</h2>
+      <form action="/predictdata" method="post">
+        <label>Make:</label>
+        <select
+          name="Make"
+          id="Make"
+          onchange="updateDropdowns('Make')"
+          required
+        ></select>
+
+        <label>Model Keyword:</label>
+        <select
+          name="Model"
+          id="Model"
+          onchange="updateDropdowns('Model')"
+          required
+        ></select>
+
+        <label>Vehicle Class:</label>
+        <select
+          name="Vehicle_Class"
+          id="Vehicle_Class"
+          onchange="updateDropdowns('Vehicle_Class')"
+          required
+        ></select>
+
+        <label>Fuel Type:</label>
+        <select
+          name="Fuel_Type"
+          id="Fuel_Type"
+          onchange="updateDropdowns('Fuel_Type')"
+          required
+        ></select>
+
+        <label>Engine Size (L):</label>
+        <select
+          name="Engine_Size"
+          id="Engine_Size"
+          onchange="updateDropdowns('Engine_Size')"
+          required
+        ></select>
+
+        <label>Cylinders:</label>
+        <select
+          name="Cylinders"
+          id="Cylinders"
+          onchange="updateDropdowns('Cylinders')"
+          required
+        ></select>
+
+        <label>Transmission Type:</label>
+        <select
+          name="Trans_Type"
+          id="Trans_Type"
+          onchange="updateDropdowns('Trans_Type')"
+          required
+        ></select>
+
+        <label>Number of Gears:</label>
+        <select
+          name="Trans_Gears"
+          id="Trans_Gears"
+          onchange="updateDropdowns('Trans_Gears')"
+          required
+        ></select>
+
+        <label>Fuel Consumption Comb (L/100 km):</label>
+        <input
+          type="number"
+          step="0.1"
+          name="Fuel_Consumption_Comb"
+          placeholder="Enter value"
+          required
+        />
+
+        <button type="submit">Predict Emission</button>
+      </form>
+
+      {% if results %}
+      <div class="result">
+        Estimated Emission: <strong>{{results}}</strong> g/km
+      </div>
+      {% endif %}
+    </div>
+
+    <script>
+      // Data passed from Flask/Jinja2
+      const validConfigs = {{ valid_configs | safe }};
+
+      // Mapping HTML IDs to DataFrame column names (Must match app.py exactly)
+      const colMap = {
+          "Make": "Make",
+          "Model": "Model",
+          "Vehicle_Class": "Vehicle Class",
+          "Fuel_Type": "Fuel Type",
+          "Engine_Size": "Engine Size(L)",
+          "Cylinders": "Cylinders",
+          "Trans_Type": "Trans_Type",
+          "Trans_Gears": "Trans_Gears"
+      };
+      const fields = Object.keys(colMap);
+
+      function populate(id, options) {
+          const el = document.getElementById(id);
+          if (!el) return;
+
+          el.innerHTML = '<option value="">-- Select --</option>';
+
+          // Get unique values, filter out empty/nulls, and sort numerically/alphabetically
+          const uniqueSorted = [...new Set(options)]
+              .filter(x => x && x !== "nan" && x !== "Unknown")
+              .sort((a, b) => a.localeCompare(b, undefined, {numeric: true}));
+
+          uniqueSorted.forEach(opt => {
+              const o = document.createElement("option");
+              o.value = opt;
+              o.textContent = opt;
+              el.appendChild(o);
+          });
+      }
+
+      function updateDropdowns(sourceId) {
+          let filtered = validConfigs;
+
+          // Filter data based on all selections made up to the current dropdown
+          for (let i = 0; i < fields.length; i++) {
+              const id = fields[i];
+              const val = document.getElementById(id).value;
+              if (val) {
+                  filtered = filtered.filter(row => row[colMap[id]] === val);
+              }
+              // If we reached the source of the change, break to update subsequent dropdowns
+              if (id === sourceId) break;
+          }
+
+          // Update only the dropdowns that come AFTER the one that was changed
+          const nextIdx = fields.indexOf(sourceId) + 1;
+          for (let i = nextIdx; i < fields.length; i++) {
+              const targetId = fields[i];
+              const availableOpts = filtered.map(row => row[colMap[targetId]]);
+              populate(targetId, availableOpts);
+          }
+      }
+
+      // Initialize the first dropdown on page load
+      window.onload = function() {
+          if (validConfigs && validConfigs.length > 0) {
+              populate("Make", validConfigs.map(r => r.Make));
+          } else {
+              console.error("Data injection failed: validConfigs is empty.");
+          }
+      };
+    </script>
+  </body>
+</html>
